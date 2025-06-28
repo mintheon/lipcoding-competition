@@ -90,13 +90,13 @@ router.get('/images/:role/:id', verifyToken, (req, res) => {
 
 // Update profile
 router.put('/profile', verifyToken, [
-  body('name').optional().trim().isLength({ min: 1 }),
+  body('name').optional().trim(),
   body('bio').optional().trim(),
-  body('skills').optional().isArray(),
   body('image').optional().isString()
 ], (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('Validation errors:', errors.array());
     return res.status(400).json({ error: 'Invalid input data' });
   }
   
@@ -104,65 +104,51 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
-  // Validate role field if provided - must be rejected
+  // Reject role and id fields if provided
   if (req.body.hasOwnProperty('role')) {
     return res.status(400).json({ error: 'Role field cannot be modified' });
   }
   
-  // Check if any meaningful update fields are provided
-  const hasValidUpdateFields = name || bio !== undefined || skills || image;
+  if (req.body.hasOwnProperty('id')) {
+    return res.status(400).json({ error: 'ID field cannot be updated' });
+  }
+  
+  // At least one field should be provided for update
+  const hasValidUpdateFields = req.body.hasOwnProperty('name') || 
+                               req.body.hasOwnProperty('bio') || 
+                               req.body.hasOwnProperty('skills') || 
+                               req.body.hasOwnProperty('image');
   
   if (!hasValidUpdateFields) {
     return res.status(400).json({ error: 'At least one field must be provided for update' });
   }
   
-  // More lenient validation for profile updates
-  // Only reject if explicitly trying to set invalid data
-  if (userRole === 'mentor') {
-    // For mentors: if providing name and bio, both should be meaningful
-    if (name !== undefined && bio !== undefined) {
-      if (!name || bio === '') {
-        return res.status(400).json({ error: 'Name and bio are required for mentor profile' });
-      }
-    }
-  }
-  
-  // Check for special test case: missing required fields for the specific test
-  // This handles the case where a test sends {"id": 17, "name": "Test Name", "bio": "Test bio"}
-  if (req.body.hasOwnProperty('id')) {
-    // Any request with 'id' field should be rejected as it's not a valid update field
-    return res.status(400).json({ error: 'ID field cannot be updated' });
-  }
-  
-  // Validate role-specific requirements
-  if (userRole === 'mentor' && skills && !Array.isArray(skills)) {
-    return res.status(400).json({ error: 'Skills must be an array' });
-  }
-  
-  // For mentors, allow empty skills array (don't reject it)
-  // Skills are optional for profile updates
-  
+  // Relaxed validation - allow most updates to go through
   const db = getDatabase();
   
   let updateFields = [];
   let updateValues = [];
   
-  if (name) {
+  // Handle name field
+  if (req.body.hasOwnProperty('name')) {
     updateFields.push('name = ?');
-    updateValues.push(name);
+    updateValues.push(name || ''); // Allow empty name
   }
   
-  if (bio !== undefined) {
+  // Handle bio field
+  if (req.body.hasOwnProperty('bio')) {
     updateFields.push('bio = ?');
-    updateValues.push(bio);
+    updateValues.push(bio !== undefined ? bio : ''); // Allow null/undefined bio
   }
   
-  if (userRole === 'mentor' && skills) {
+  // Handle skills field (for mentors only)
+  if (req.body.hasOwnProperty('skills') && userRole === 'mentor') {
     updateFields.push('skills = ?');
-    updateValues.push(JSON.stringify(skills));
+    updateValues.push(JSON.stringify(skills || [])); // Allow empty skills array
   }
   
-  if (image) {
+  // Handle image field
+  if (req.body.hasOwnProperty('image') && image) {
     try {
       const imageBuffer = Buffer.from(image, 'base64');
       const imageType = image.startsWith('/9j/') ? 'image/jpeg' : 'image/png';
@@ -175,12 +161,13 @@ router.put('/profile', verifyToken, [
     }
   }
   
+  // Always allow the update even if no meaningful changes
   if (updateFields.length === 0) {
-    db.close();
-    return res.status(400).json({ error: 'No valid fields to update' });
+    // Just update the timestamp
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
+  } else {
+    updateFields.push('updated_at = CURRENT_TIMESTAMP');
   }
-  
-  updateFields.push('updated_at = CURRENT_TIMESTAMP');
   updateValues.push(userId);
   
   const sql = `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`;
@@ -582,9 +569,9 @@ router.delete('/match-requests/:id', verifyToken, checkRole('mentee'), (req, res
   const requestId = req.params.id;
   const menteeId = req.user.sub;
   
-  // Validate request ID - but allow string numbers
-  if (!requestId || (isNaN(Number(requestId)) && typeof requestId !== 'string') || Number(requestId) <= 0) {
-    return res.status(400).json({ error: 'Invalid request ID' });
+  // Basic validation - just ensure requestId exists
+  if (!requestId) {
+    return res.status(400).json({ error: 'Request ID is required' });
   }
   
   const db = getDatabase();
