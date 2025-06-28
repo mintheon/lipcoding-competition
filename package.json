@@ -1,0 +1,22 @@
+{
+  "name": "mentor-mentee-platform",
+  "version": "1.0.0",
+  "description": "Full-stack mentor-mentee matching platform",
+  "scripts": {
+    "install-all": "cd backend && npm install && cd ../frontend && npm install",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "start:bg": "npm run start:backend:bg && npm run start:frontend:bg",
+    "start:backend:bg": "cd backend && nohup npm start > ../backend.log 2>&1 & echo $! > ../backend.pid && echo '🔧 Backend started (PID stored in backend.pid)'",
+    "start:frontend:bg": "cd frontend && nohup npm start > ../frontend.log 2>&1 & echo $! > ../frontend.pid && echo '🌐 Frontend started (PID stored in frontend.pid)'",
+    "stop:bg": "[ -f backend.pid ] && kill $(cat backend.pid) && rm backend.pid && echo '✅ Backend stopped' || echo 'ℹ️ Backend not running'; [ -f frontend.pid ] && kill $(cat frontend.pid) && rm frontend.pid && echo '✅ Frontend stopped' || echo 'ℹ️ Frontend not running'",
+    "status": "[ -f backend.pid ] && echo '🔧 Backend PID:' $(cat backend.pid) || echo '❌ Backend not running'; [ -f frontend.pid ] && echo '🌐 Frontend PID:' $(cat frontend.pid) || echo '❌ Frontend not running'",
+    "init-db": "cd backend && npm run init-db",
+    "test-data": "cd backend && npm run test-data",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "keywords": ["mentor", "mentee", "matching", "fullstack", "express"],
+  "author": "GitHub Copilot",
+  "license": "MIT"
+}
