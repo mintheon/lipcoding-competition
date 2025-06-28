@@ -29,25 +29,56 @@ A full-stack web application for connecting mentors and mentees, built with Node
 - Node.js (v16 or higher)
 - npm
 
-### Installation
+### Installation & Running
 
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd mentor-mentee-app
-```
-
-2. Install dependencies
+1. Install dependencies
 ```bash
 npm install
 ```
 
-3. Start the backend server (Port 8080)
+2. **Option 1: Background Mode (Recommended for Testing)**
 ```bash
-npm start
+# Start both servers in background
+npm run start:bg
+
+# Check server status
+npm run status
+
+# Stop all servers
+npm run stop:bg
 ```
 
-4. In a new terminal, start the frontend server (Port 3000)
+3. **Option 2: Individual Background Control**
+```bash
+# Start backend only (background)
+npm run backend:bg
+
+# Start frontend only (background)  
+npm run frontend:bg
+
+# Stop backend only
+npm run stop:backend
+
+# Stop frontend only
+npm run stop:frontend
+
+# Check status
+npm run status
+```
+
+4. **Option 3: Separate Terminals (Foreground)**
+```bash
+# Terminal 1: Start backend server (Port 8080)
+npm start
+
+# Terminal 2: Start frontend server (Port 3000) 
+npm run frontend
+```
+
+5. **Option 4: Combined Start (Foreground)**
+```bash
+npm run full-start
+```
 ```bash
 npm run frontend
 ```

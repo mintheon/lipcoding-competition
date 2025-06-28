@@ -5,10 +5,18 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
     "frontend": "node frontend.js",
+    "dev": "nodemon server.js",
     "init-db": "node scripts/init-db.js",
-    "test-data": "node scripts/init-test-data.js"
+    "test-data": "node scripts/init-test-data.js",
+    "full-start": "chmod +x start.sh && ./start.sh",
+    "start:bg": "chmod +x start-bg.sh && ./start-bg.sh",
+    "stop:bg": "chmod +x stop-bg.sh && ./stop-bg.sh",
+    "backend:bg": "nohup node server.js > backend.log 2>&1 & echo $! > backend.pid && echo '🔧 Backend started in background (PID stored in backend.pid)' && echo '📄 Logs: tail -f backend.log'",
+    "frontend:bg": "nohup node frontend.js > frontend.log 2>&1 & echo $! > frontend.pid && echo '🌐 Frontend started in background (PID stored in frontend.pid)' && echo '📄 Logs: tail -f frontend.log'",
+    "stop:backend": "[ -f backend.pid ] && kill $(cat backend.pid) && rm backend.pid && echo '✅ Backend stopped' || echo 'ℹ️  Backend not running'",
+    "stop:frontend": "[ -f frontend.pid ] && kill $(cat frontend.pid) && rm frontend.pid && echo '✅ Frontend stopped' || echo 'ℹ️  Frontend not running'",
+    "status": "[ -f backend.pid ] && echo '🔧 Backend PID:' $(cat backend.pid) || echo '❌ Backend not running'; [ -f frontend.pid ] && echo '🌐 Frontend PID:' $(cat frontend.pid) || echo '❌ Frontend not running'"
   },
   "dependencies": {
     "express": "^4.18.2",

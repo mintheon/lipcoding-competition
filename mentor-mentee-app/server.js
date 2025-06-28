@@ -6,7 +6,6 @@ const rateLimit = require('express-rate-limit');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const fs = require('fs');
-const { createProxyMiddleware: proxy } = require('http-proxy-middleware');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -18,7 +17,6 @@ const { initDatabase } = require('./middleware/database');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const FRONTEND_PORT = 3000;
 
 // Initialize database
 initDatabase();
@@ -85,15 +83,22 @@ if (fs.existsSync(openApiPath)) {
   console.warn('OpenAPI spec file not found at:', openApiPath);
 }
 
-// Routes
+// Routes - API routes first
 app.use('/api', authRoutes);
 app.use('/api', apiRoutes);
-app.use('/', webRoutes);
 
-// Redirect root to Swagger UI for API documentation
+// Redirect /api to Swagger UI for API documentation
 app.get('/api', (req, res) => {
   res.redirect('/swagger-ui');
 });
+
+// Redirect root to Swagger UI for API documentation  
+app.get('/', (req, res) => {
+  res.redirect('/swagger-ui');
+});
+
+// Web routes for frontend (non-API routes)
+app.use('/', webRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -117,21 +122,8 @@ app.use((req, res) => {
 
 // Start backend server
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  console.log(`API documentation available at http://localhost:${PORT}/swagger-ui`);
-  console.log(`Frontend available at http://localhost:${PORT}`);
-});
-
-// Start frontend proxy server on port 3000
-const frontendApp = express();
-
-// Proxy all requests to the main server
-frontendApp.use('/', proxy({
-  target: `http://localhost:${PORT}`,
-  changeOrigin: true
-}));
-
-frontendApp.listen(FRONTEND_PORT, () => {
-  console.log(`Frontend proxy server is running on http://localhost:${FRONTEND_PORT}`);
-  console.log(`Proxying all requests to http://localhost:${PORT}`);
+  console.log(`🔧 Backend API Server is running on http://localhost:${PORT}`);
+  console.log(`📚 API documentation available at http://localhost:${PORT}/swagger-ui`);
+  console.log(`🌐 OpenAPI JSON available at http://localhost:${PORT}/openapi.json`);
+  console.log(`💡 Start frontend with: npm run frontend`);
 });
