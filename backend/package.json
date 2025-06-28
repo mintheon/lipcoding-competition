@@ -4,10 +4,10 @@
   "description": "Backend API server for mentor-mentee matching application",
   "main": "server.js",
   "scripts": {
-    "start": "npm run setup && nohup node server.js > server.log 2>&1 & echo $! > server.pid && echo '🔧 Backend started in background (PID: '$(cat server.pid)')' && echo '📄 Logs: tail -f server.log'",
-    "start:fg": "npm run setup && node server.js",
+    "start": "nohup node server.js > server.log 2>&1 & echo $! > server.pid && echo '🔧 Backend started in background (PID: '$(cat server.pid)')' && echo '📄 Logs: tail -f server.log'",
+    "start:fg": "node server.js",
     "setup": "npm run test-data",
-    "dev": "npm run setup && nodemon server.js",
+    "dev": "nodemon server.js",
     "stop": "[ -f server.pid ] && kill $(cat server.pid) && rm server.pid && echo '✅ Backend stopped' || echo 'ℹ️ Backend not running'",
     "status": "[ -f server.pid ] && echo '🔧 Backend PID:' $(cat server.pid) || echo '❌ Backend not running'",
     "logs": "tail -f server.log",

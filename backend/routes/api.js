@@ -304,6 +304,11 @@ router.post('/match-requests', verifyToken, [
   const { mentorId, message } = req.body;
   const menteeId = req.user.sub;
   
+  // Additional validation for mentorId
+  if (!Number.isInteger(Number(mentorId)) || Number(mentorId) <= 0) {
+    return res.status(400).json({ error: 'Invalid mentorId' });
+  }
+  
   // Check for extremely long message
   if (message && message.length > 1000) {
     return res.status(400).json({ error: 'Message too long' });
@@ -321,6 +326,7 @@ router.post('/match-requests', verifyToken, [
     [mentorId],
     (err, mentor) => {
       if (err) {
+        console.error('Database error checking mentor:', err);
         db.close();
         return res.status(500).json({ error: 'Internal server error' });
       }
@@ -336,6 +342,7 @@ router.post('/match-requests', verifyToken, [
         [mentorId, menteeId],
         (err, existingRequest) => {
           if (err) {
+            console.error('Database error checking existing request:', err);
             db.close();
             return res.status(500).json({ error: 'Internal server error' });
           }
