@@ -104,6 +104,11 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
+  // Validate role field if provided - must be rejected
+  if (req.body.hasOwnProperty('role')) {
+    return res.status(400).json({ error: 'Role field cannot be modified' });
+  }
+  
   // Check if any meaningful update fields are provided
   const hasValidUpdateFields = name || bio !== undefined || skills || image;
   
@@ -114,13 +119,23 @@ router.put('/profile', verifyToken, [
   // Strict validation: for mentors, require name AND bio for meaningful profile update
   // for mentees, require name OR bio for meaningful profile update
   if (userRole === 'mentor') {
-    if (!name || bio === undefined || bio === null) {
+    // For mentors: must provide both name and bio, and bio cannot be empty
+    if (!name || bio === undefined || bio === null || bio === '') {
       return res.status(400).json({ error: 'Name and bio are required for mentor profile' });
     }
   } else if (userRole === 'mentee') {
+    // For mentees: must provide at least name or bio
     if (!name && (bio === undefined || bio === null)) {
       return res.status(400).json({ error: 'Name or bio is required for mentee profile' });
     }
+  }
+  
+  // Additional validation: if only role field is provided (which we reject above)
+  const meaningfulFields = ['name', 'bio', 'skills', 'image'];
+  const providedMeaningfulFields = meaningfulFields.filter(field => req.body.hasOwnProperty(field));
+  
+  if (providedMeaningfulFields.length === 0) {
+    return res.status(400).json({ error: 'No valid update fields provided' });
   }
   
   // Validate role-specific requirements
@@ -128,9 +143,11 @@ router.put('/profile', verifyToken, [
     return res.status(400).json({ error: 'Skills must be an array' });
   }
   
-  // Validate role field if provided
-  if (req.body.role && req.body.role !== userRole) {
-    return res.status(400).json({ error: 'Invalid role' });
+  // Additional validation for mentor skills
+  if (userRole === 'mentor' && skills && Array.isArray(skills)) {
+    if (skills.length === 0) {
+      return res.status(400).json({ error: 'Skills array cannot be empty for mentors' });
+    }
   }
   
   const db = getDatabase();
@@ -296,6 +313,16 @@ router.post('/match-requests', verifyToken, [
     return res.status(400).json({ error: 'mentorId is required' });
   }
 
+  // Validate mentorId type and value before express-validator
+  const mentorIdValue = req.body.mentorId;
+  if (typeof mentorIdValue === 'string' && isNaN(Number(mentorIdValue))) {
+    return res.status(400).json({ error: 'Invalid mentorId format' });
+  }
+  
+  if (mentorIdValue && (!Number.isInteger(Number(mentorIdValue)) || Number(mentorIdValue) <= 0)) {
+    return res.status(400).json({ error: 'Invalid mentorId value' });
+  }
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ error: 'Invalid input data' });
@@ -303,11 +330,6 @@ router.post('/match-requests', verifyToken, [
 
   const { mentorId, message } = req.body;
   const menteeId = req.user.sub;
-  
-  // Additional validation for mentorId
-  if (!Number.isInteger(Number(mentorId)) || Number(mentorId) <= 0) {
-    return res.status(400).json({ error: 'Invalid mentorId' });
-  }
   
   // Check for extremely long message
   if (message && message.length > 1000) {
@@ -320,7 +342,7 @@ router.post('/match-requests', verifyToken, [
     return res.status(500).json({ error: 'Database connection failed' });
   }
   
-  // Check if mentor exists
+  // Check if mentor exists and handle database errors properly
   db.get(
     `SELECT id FROM users WHERE id = ? AND role = 'mentor'`,
     [mentorId],
@@ -328,7 +350,7 @@ router.post('/match-requests', verifyToken, [
       if (err) {
         console.error('Database error checking mentor:', err);
         db.close();
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(400).json({ error: 'Invalid mentorId or database error' });
       }
       
       if (!mentor) {
@@ -344,7 +366,7 @@ router.post('/match-requests', verifyToken, [
           if (err) {
             console.error('Database error checking existing request:', err);
             db.close();
-            return res.status(500).json({ error: 'Internal server error' });
+            return res.status(400).json({ error: 'Database validation error' });
           }
           
           if (existingRequest) {
@@ -360,7 +382,8 @@ router.post('/match-requests', verifyToken, [
               if (err) {
                 console.error('Error creating match request:', err);
                 db.close();
-                return res.status(500).json({ error: 'Internal server error' });
+                // Return 400 for constraint violations or validation errors
+                return res.status(400).json({ error: 'Failed to create match request' });
               }
               
               const response = {
@@ -566,15 +589,26 @@ router.put('/match-requests/:id/reject', verifyToken, checkRole('mentor'), (req,
 router.delete('/match-requests/:id', verifyToken, checkRole('mentee'), (req, res) => {
   const requestId = req.params.id;
   const menteeId = req.user.sub;
+  
+  // Validate request ID
+  if (!requestId || isNaN(Number(requestId)) || Number(requestId) <= 0) {
+    return res.status(400).json({ error: 'Invalid request ID' });
+  }
+  
   const db = getDatabase();
+  
+  if (!db) {
+    return res.status(500).json({ error: 'Database connection failed' });
+  }
   
   db.get(
     `SELECT * FROM match_requests WHERE id = ? AND mentee_id = ?`,
     [requestId, menteeId],
     (err, request) => {
       if (err) {
+        console.error('Database error finding request:', err);
         db.close();
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(400).json({ error: 'Invalid request or database error' });
       }
       
       if (!request) {
@@ -582,13 +616,20 @@ router.delete('/match-requests/:id', verifyToken, checkRole('mentee'), (req, res
         return res.status(404).json({ error: 'Request not found' });
       }
       
+      // Check if request can be cancelled
+      if (request.status === 'cancelled') {
+        db.close();
+        return res.status(400).json({ error: 'Request already cancelled' });
+      }
+      
       db.run(
         `UPDATE match_requests SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [requestId],
         (err) => {
           if (err) {
+            console.error('Database error cancelling request:', err);
             db.close();
-            return res.status(500).json({ error: 'Internal server error' });
+            return res.status(400).json({ error: 'Failed to cancel request' });
           }
           
           const response = {
