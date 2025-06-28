@@ -21,9 +21,19 @@ router.post('/signup', [
     
     const { email, password, name, role } = req.body;
     
-    // Check for missing required fields
+    // Check for missing required fields more strictly
     if (!email || !password || !name || !role) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: 'Missing required fields: email, password, name, and role are required' });
+    }
+    
+    // Additional validation
+    if (typeof email !== 'string' || typeof password !== 'string' || 
+        typeof name !== 'string' || typeof role !== 'string') {
+      return res.status(400).json({ error: 'Invalid field types' });
+    }
+    
+    if (role !== 'mentor' && role !== 'mentee') {
+      return res.status(400).json({ error: 'Role must be either mentor or mentee' });
     }
     
     const hashedPassword = await bcrypt.hash(password, 12);

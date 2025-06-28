@@ -22,6 +22,7 @@ const upload = multer({
 
 // Get current user info
 router.get('/me', verifyToken, (req, res) => {
+  console.log('GET /me called with user:', req.user);
   const db = getDatabase();
   
   db.get(
@@ -104,18 +105,23 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
-  // Check for required fields based on role
-  if (userRole === 'mentor' && !name && !bio && !skills && !image) {
-    return res.status(400).json({ error: 'At least one field must be provided' });
-  }
+  // For mentors, at least name, bio, or skills should be provided for a valid profile
+  // For mentees, at least name or bio should be provided for a valid profile
+  const hasRequiredFields = (userRole === 'mentor' && (name || bio || skills)) || 
+                           (userRole === 'mentee' && (name || bio));
   
-  if (userRole === 'mentee' && !name && !bio && !image) {
-    return res.status(400).json({ error: 'At least one field must be provided' });
+  if (!hasRequiredFields && !image) {
+    return res.status(400).json({ error: 'Missing required fields for profile update' });
   }
   
   // Validate role-specific requirements
   if (userRole === 'mentor' && skills && !Array.isArray(skills)) {
     return res.status(400).json({ error: 'Skills must be an array' });
+  }
+  
+  // Validate role field if provided
+  if (req.body.role && req.body.role !== userRole) {
+    return res.status(400).json({ error: 'Invalid role' });
   }
   
   const db = getDatabase();
@@ -296,6 +302,10 @@ router.post('/match-requests', verifyToken, [
   
   const db = getDatabase();
   
+  if (!db) {
+    return res.status(500).json({ error: 'Database connection failed' });
+  }
+  
   // Check if mentor exists
   db.get(
     `SELECT id FROM users WHERE id = ? AND role = 'mentor'`,
@@ -332,6 +342,7 @@ router.post('/match-requests', verifyToken, [
             [mentorId, menteeId, message || ''],
             function(err) {
               if (err) {
+                console.error('Error creating match request:', err);
                 db.close();
                 return res.status(500).json({ error: 'Internal server error' });
               }

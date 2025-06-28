@@ -28,26 +28,44 @@ function generateToken(user) {
   return jwt.sign(payload, JWT_SECRET);
 }
 
+// Helper function to create expired token for testing
+function generateExpiredToken(user) {
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now - 3600; // Expired 1 hour ago
+  
+  const payload = {
+    // Standard claims (RFC 7519)
+    iss: JWT_ISSUER,
+    sub: user.id.toString(),
+    aud: JWT_AUDIENCE,
+    exp: exp,
+    nbf: now - 7200,
+    iat: now - 7200,
+    jti: uuidv4(),
+    
+    // Custom claims
+    name: user.name || user.email,
+    email: user.email,
+    role: user.role
+  };
+  
+  return jwt.sign(payload, JWT_SECRET);
+}
+
 function verifyToken(req, res, next) {
+  console.log('verifyToken called for:', req.originalUrl, req.path);
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Access token required' });
-    } else {
-      return res.redirect('/login');
-    }
+    console.log('No auth header, path:', req.originalUrl);
+    return res.status(401).json({ error: 'Access token required' });
   }
   
   const token = authHeader.substring(7);
   
   // Check for malformed token
   if (!token || token === 'not-a-jwt-token' || token.split('.').length !== 3) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Invalid token' });
-    } else {
-      return res.redirect('/login');
-    }
+    return res.status(401).json({ error: 'Invalid token' });
   }
   
   try {
@@ -56,32 +74,20 @@ function verifyToken(req, res, next) {
     // Check if token is expired
     const now = Math.floor(Date.now() / 1000);
     if (decoded.exp && decoded.exp < now) {
-      if (req.path.startsWith('/api/')) {
-        return res.status(401).json({ error: 'Token expired' });
-      } else {
-        return res.redirect('/login');
-      }
+      return res.status(401).json({ error: 'Token expired' });
     }
     
     req.user = decoded;
     next();
   } catch (err) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Invalid token' });
-    } else {
-      return res.redirect('/login');
-    }
+    return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
 function checkRole(role) {
   return (req, res, next) => {
     if (req.user.role !== role) {
-      if (req.path.startsWith('/api/')) {
-        return res.status(403).json({ error: 'Insufficient permissions' });
-      } else {
-        return res.status(403).render('error', { error: 'Access denied' });
-      }
+      return res.status(403).json({ error: 'Insufficient permissions' });
     }
     next();
   };
@@ -106,5 +112,6 @@ module.exports = {
   verifyToken,
   checkRole,
   checkMentee,
-  checkMentor
+  checkMentor,
+  generateExpiredToken
 };
