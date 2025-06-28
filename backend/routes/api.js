@@ -104,12 +104,16 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
+  console.log('Profile update request:', JSON.stringify(req.body, null, 2));
+  
   // Reject role and id fields if provided
   if (req.body.hasOwnProperty('role')) {
+    console.log('Rejecting request with role field');
     return res.status(400).json({ error: 'Role field cannot be modified' });
   }
   
   if (req.body.hasOwnProperty('id')) {
+    console.log('Rejecting request with id field');
     return res.status(400).json({ error: 'ID field cannot be updated' });
   }
   

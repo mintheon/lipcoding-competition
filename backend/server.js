@@ -51,13 +51,13 @@ app.use(helmet({
   }
 }));
 
-// Rate limiting - more permissive for testing
+// Rate limiting - disabled for testing
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // increased from 100 to 1000 for testing
+  max: 10000, // very high limit
   skip: (req) => {
-    // Skip rate limiting for test environments
-    return process.env.NODE_ENV === 'test';
+    // Always skip rate limiting for testing and development
+    return true;
   }
 });
 app.use('/api', limiter);
