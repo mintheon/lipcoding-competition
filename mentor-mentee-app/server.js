@@ -97,9 +97,6 @@ app.get('/', (req, res) => {
   res.redirect('/swagger-ui');
 });
 
-// Web routes for frontend (non-API routes)
-app.use('/', webRoutes);
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

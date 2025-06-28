@@ -1,12 +1,29 @@
 const express = require('express');
 const path = require('path');
+const cookieParser = require('cookie-parser');
 const { createProxyMiddleware: proxy } = require('http-proxy-middleware');
+
+// Import web routes
+const webRoutes = require('./routes/web');
 
 const app = express();
 const PORT = 3000;
 const BACKEND_PORT = 8080;
 
 console.log('🚀 Starting Frontend Server...');
+
+// Middleware setup
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Static files
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// View engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 // Proxy API calls to backend
 app.use('/api', proxy({
@@ -28,6 +45,9 @@ app.use('/openapi.json', proxy({
   target: `http://localhost:${BACKEND_PORT}`,
   changeOrigin: true
 }));
+
+// Web routes for frontend pages
+app.use('/', webRoutes);
 
 // Serve all other requests from the backend server (for web pages)
 app.use('/', proxy({
