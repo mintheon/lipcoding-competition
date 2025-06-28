@@ -1,0 +1,262 @@
+<% 
+const user = locals.user || {};
+%>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find Mentors - Mentor-Mentee Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            color: #007bff !important;
+        }
+        .mentor-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mentor-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        .profile-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .skill-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            margin: 0.1rem;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46a3 100%);
+        }
+        .search-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-people-fill"></i> Mentor-Mentee
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/profile">
+                            <i class="bi bi-person"></i> Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/mentors">
+                            <i class="bi bi-search"></i> Mentors
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/requests">
+                            <i class="bi bi-envelope"></i> Requests
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <button class="nav-link dropdown-toggle btn btn-link" id="navbarDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> <%= user.profile.name %>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/profile"><i class="bi bi-gear"></i> Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="/logout" method="POST" class="d-inline">
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="bi bi-box-arrow-right"></i> Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Search Section -->
+    <section class="search-section">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <h2 class="text-center mb-4">
+                        <i class="bi bi-search"></i> Find Your Perfect Mentor
+                    </h2>
+                    <form action="/mentors" method="GET">
+                        <div class="row g-3">
+                            <div class="col-md-5">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white">
+                                        <i class="bi bi-tags"></i>
+                                    </span>
+                                    <input type="text" class="form-control" id="search" name="skill" 
+                                           value="<%= searchSkill %>" placeholder="Search by skill (e.g., React, Python)">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" name="order_by">
+                                    <option value="">Sort by...</option>
+                                    <option value="name" <%= orderBy === 'name' ? 'selected' : '' %> id="name">Name</option>
+                                    <option value="skill" <%= orderBy === 'skill' ? 'selected' : '' %> id="skill">Skills</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-light w-100">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                            <div class="col-md-2">
+                                <a href="/mentors" class="btn btn-outline-light w-100">
+                                    <i class="bi bi-arrow-clockwise"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="container mt-4">
+        <% if (error) { %>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> <%= error %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <% } %>
+
+        <div class="row mb-4">
+            <div class="col">
+                <h4>
+                    <i class="bi bi-person-badge"></i> Available Mentors 
+                    <span class="badge bg-primary"><%= mentors.length %></span>
+                </h4>
+                <% if (searchSkill) { %>
+                <p class="text-muted">Showing mentors with skill: <strong><%= searchSkill %></strong></p>
+                <% } %>
+            </div>
+        </div>
+
+        <% if (mentors.length === 0) { %>
+        <div class="text-center py-5">
+            <i class="bi bi-search display-1 text-muted"></i>
+            <h4 class="mt-3 text-muted">No mentors found</h4>
+            <p class="text-muted">Try adjusting your search criteria</p>
+            <a href="/mentors" class="btn btn-primary">View All Mentors</a>
+        </div>
+        <% } else { %>
+        <div class="row">
+            <% mentors.forEach(mentor => { %>
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card mentor-card h-100 mentor">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <img src="<%= mentor.profile.imageUrl %>" alt="<%= mentor.profile.name %>" class="profile-image me-3">
+                            <div>
+                                <h5 class="card-title mb-1"><%= mentor.profile.name %></h5>
+                                <p class="text-muted mb-0">
+                                    <i class="bi bi-envelope"></i> <%= mentor.email %>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <% if (mentor.profile.bio) { %>
+                        <p class="card-text"><%= mentor.profile.bio %></p>
+                        <% } %>
+                        
+                        <% if (mentor.profile.skills && mentor.profile.skills.length > 0) { %>
+                        <div class="mb-3">
+                            <h6 class="text-muted">Skills</h6>
+                            <% mentor.profile.skills.forEach(skill => { %>
+                                <span class="skill-tag"><%= skill %></span>
+                            <% }); %>
+                        </div>
+                        <% } %>
+                        
+                        <!-- Request Form -->
+                        <form action="/mentors/<%= mentor.id %>/request" method="POST" class="request-form">
+                            <div class="mb-3">
+                                <label for="message-<%= mentor.id %>" class="form-label">Message to Mentor</label>
+                                <textarea class="form-control" id="message" name="message" rows="2" 
+                                          data-mentor-id="<%= mentor.id %>" data-testid="message-<%= mentor.id %>"
+                                          placeholder="Why would you like this mentor?"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="request">
+                                <i class="bi bi-envelope-plus"></i> Send Request
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <% }); %>
+        </div>
+        <% } %>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle form submissions
+        document.querySelectorAll('.request-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                const button = this.querySelector('button');
+                const originalText = button.innerHTML;
+                
+                button.disabled = true;
+                button.innerHTML = '<i class="bi bi-hourglass-split"></i> Sending...';
+                
+                // Re-enable button after 3 seconds if form doesn't submit
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                }, 3000);
+            });
+        });
+
+        // Auto-hide alerts
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                if (!alert.classList.contains('alert-danger')) {
+                    alert.style.transition = 'opacity 0.5s';
+                    alert.style.opacity = '0';
+                    setTimeout(() => alert.remove(), 500);
+                }
+            });
+        }, 5000);
+    </script>
+</body>
+</html>
