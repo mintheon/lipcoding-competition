@@ -53,11 +53,9 @@ function generateExpiredToken(user) {
 }
 
 function verifyToken(req, res, next) {
-  console.log('verifyToken called for:', req.originalUrl, req.path);
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No auth header, path:', req.originalUrl);
     return res.status(401).json({ error: 'Access token required' });
   }
   

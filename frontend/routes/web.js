@@ -186,6 +186,18 @@ router.post('/profile', requireAuth, async (req, res) => {
 // Mentors page (mentee only)
 router.get('/mentors', requireAuth, requireRole('mentee'), async (req, res) => {
   try {
+    // Get current user info
+    const userResponse = await fetch('http://localhost:8080/api/me', {
+      headers: { 'Authorization': `Bearer ${req.cookies.token}` }
+    });
+    
+    if (!userResponse.ok) {
+      return res.redirect('/login');
+    }
+    
+    const user = await userResponse.json();
+    
+    // Get mentors list
     const queryParams = new URLSearchParams();
     if (req.query.skill) queryParams.append('skill', req.query.skill);
     if (req.query.order_by) queryParams.append('order_by', req.query.order_by);
@@ -199,6 +211,7 @@ router.get('/mentors', requireAuth, requireRole('mentee'), async (req, res) => {
     if (response.ok) {
       const mentors = await response.json();
       res.render('mentors', { 
+        user,
         mentors, 
         searchSkill: req.query.skill || '',
         orderBy: req.query.order_by || '',
@@ -206,6 +219,7 @@ router.get('/mentors', requireAuth, requireRole('mentee'), async (req, res) => {
       });
     } else {
       res.render('mentors', { 
+        user,
         mentors: [], 
         searchSkill: '',
         orderBy: '',
@@ -246,7 +260,18 @@ router.post('/mentors/:id/request', requireAuth, requireRole('mentee'), async (r
 // Requests page
 router.get('/requests', requireAuth, async (req, res) => {
   try {
-    const endpoint = req.user.role === 'mentor' ? 'incoming' : 'outgoing';
+    // Get current user info
+    const userResponse = await fetch('http://localhost:8080/api/me', {
+      headers: { 'Authorization': `Bearer ${req.cookies.token}` }
+    });
+    
+    if (!userResponse.ok) {
+      return res.redirect('/login');
+    }
+    
+    const user = await userResponse.json();
+    
+    const endpoint = user.role === 'mentor' ? 'incoming' : 'outgoing';
     const response = await fetch(`http://localhost:8080/api/match-requests/${endpoint}`, {
       headers: {
         'Authorization': `Bearer ${req.cookies.token}`
@@ -257,7 +282,7 @@ router.get('/requests', requireAuth, async (req, res) => {
       const requests = await response.json();
       
       // For mentor incoming requests, get mentee details
-      if (req.user.role === 'mentor' && requests.length > 0) {
+      if (user.role === 'mentor' && requests.length > 0) {
         for (let request of requests) {
           try {
             const menteeResponse = await fetch(`http://localhost:8080/api/images/mentee/${request.menteeId}`, {
@@ -273,15 +298,17 @@ router.get('/requests', requireAuth, async (req, res) => {
       }
       
       res.render('requests', { 
+        user,
         requests, 
-        userRole: req.user.role,
+        userRole: user.role,
         error: req.query.error || null,
         success: req.query.success || null
       });
     } else {
       res.render('requests', { 
+        user,
         requests: [], 
-        userRole: req.user.role,
+        userRole: user.role,
         error: 'Failed to load requests',
         success: null
       });

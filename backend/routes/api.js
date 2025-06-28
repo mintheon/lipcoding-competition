@@ -22,7 +22,6 @@ const upload = multer({
 
 // Get current user info
 router.get('/me', verifyToken, (req, res) => {
-  console.log('GET /me called with user:', req.user);
   const db = getDatabase();
   
   db.get(
