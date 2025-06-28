@@ -104,13 +104,23 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
-  // For mentors, at least name, bio, or skills should be provided for a valid profile
-  // For mentees, at least name or bio should be provided for a valid profile
-  const hasRequiredFields = (userRole === 'mentor' && (name || bio || skills)) || 
-                           (userRole === 'mentee' && (name || bio));
+  // Check if any meaningful update fields are provided
+  const hasValidUpdateFields = name || bio !== undefined || skills || image;
   
-  if (!hasRequiredFields && !image) {
-    return res.status(400).json({ error: 'Missing required fields for profile update' });
+  if (!hasValidUpdateFields) {
+    return res.status(400).json({ error: 'At least one field must be provided for update' });
+  }
+  
+  // Strict validation: for mentors, require name AND bio for meaningful profile update
+  // for mentees, require name OR bio for meaningful profile update
+  if (userRole === 'mentor') {
+    if (!name || bio === undefined || bio === null) {
+      return res.status(400).json({ error: 'Name and bio are required for mentor profile' });
+    }
+  } else if (userRole === 'mentee') {
+    if (!name && (bio === undefined || bio === null)) {
+      return res.status(400).json({ error: 'Name or bio is required for mentee profile' });
+    }
   }
   
   // Validate role-specific requirements
@@ -280,19 +290,19 @@ router.post('/match-requests', verifyToken, [
   if (req.user.role !== 'mentee') {
     return res.status(403).json({ error: 'Access denied' });
   }
-  
+
+  // Check for missing required fields first
+  if (!req.body.mentorId) {
+    return res.status(400).json({ error: 'mentorId is required' });
+  }
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ error: 'Invalid input data' });
   }
-  
+
   const { mentorId, message } = req.body;
   const menteeId = req.user.sub;
-  
-  // Check for missing required fields
-  if (!mentorId) {
-    return res.status(400).json({ error: 'mentorId is required' });
-  }
   
   // Check for extremely long message
   if (message && message.length > 1000) {
@@ -583,7 +593,7 @@ router.delete('/match-requests/:id', verifyToken, checkRole('mentee'), (req, res
           };
           
           db.close();
-          res.json(response);
+          res.status(200).json(response);
         }
       );
     }

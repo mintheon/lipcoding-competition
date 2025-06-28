@@ -78,7 +78,7 @@ if (fs.existsSync(openApiPath)) {
 }
 
 // Routes - API routes first
-app.use('/api', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 
 // Redirect /api to Swagger UI for API documentation
