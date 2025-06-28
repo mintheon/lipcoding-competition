@@ -104,6 +104,20 @@ router.put('/profile', verifyToken, [
   const userId = req.user.sub;
   const userRole = req.user.role;
   
+  // Check for required fields based on role
+  if (userRole === 'mentor' && !name && !bio && !skills && !image) {
+    return res.status(400).json({ error: 'At least one field must be provided' });
+  }
+  
+  if (userRole === 'mentee' && !name && !bio && !image) {
+    return res.status(400).json({ error: 'At least one field must be provided' });
+  }
+  
+  // Validate role-specific requirements
+  if (userRole === 'mentor' && skills && !Array.isArray(skills)) {
+    return res.status(400).json({ error: 'Skills must be an array' });
+  }
+  
   const db = getDatabase();
   
   let updateFields = [];
@@ -135,6 +149,11 @@ router.put('/profile', verifyToken, [
       db.close();
       return res.status(400).json({ error: 'Invalid image data' });
     }
+  }
+  
+  if (updateFields.length === 0) {
+    db.close();
+    return res.status(400).json({ error: 'No valid fields to update' });
   }
   
   updateFields.push('updated_at = CURRENT_TIMESTAMP');
@@ -184,10 +203,16 @@ router.put('/profile', verifyToken, [
 });
 
 // Get mentors list (for mentees)
-router.get('/mentors', verifyToken, checkRole('mentee'), [
-  query('skill').optional().trim(),
-  query('order_by').optional().isIn(['skill', 'name'])
-], (req, res) => {
+router.get('/mentors', verifyToken, (req, res) => {
+  // Check role - only mentees can access this
+  if (req.user.role === 'mentor') {
+    return res.status(403).json({ error: 'Mentors cannot access mentor list' });
+  }
+  
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ error: 'Invalid query parameters' });
@@ -238,10 +263,19 @@ router.get('/mentors', verifyToken, checkRole('mentee'), [
 });
 
 // Send match request (mentee only)
-router.post('/match-requests', verifyToken, checkRole('mentee'), [
+router.post('/match-requests', verifyToken, [
   body('mentorId').isInt({ min: 1 }),
   body('message').optional().trim()
 ], (req, res) => {
+  // Check role - only mentees can create match requests
+  if (req.user.role === 'mentor') {
+    return res.status(403).json({ error: 'Mentors cannot create match requests' });
+  }
+  
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ error: 'Invalid input data' });
@@ -249,6 +283,16 @@ router.post('/match-requests', verifyToken, checkRole('mentee'), [
   
   const { mentorId, message } = req.body;
   const menteeId = req.user.sub;
+  
+  // Check for missing required fields
+  if (!mentorId) {
+    return res.status(400).json({ error: 'mentorId is required' });
+  }
+  
+  // Check for extremely long message
+  if (message && message.length > 1000) {
+    return res.status(400).json({ error: 'Message too long' });
+  }
   
   const db = getDatabase();
   
@@ -301,7 +345,7 @@ router.post('/match-requests', verifyToken, checkRole('mentee'), [
               };
               
               db.close();
-              res.json(response);
+              res.status(201).json(response);
             }
           );
         }
@@ -311,7 +355,16 @@ router.post('/match-requests', verifyToken, checkRole('mentee'), [
 });
 
 // Get incoming requests (mentor only)
-router.get('/match-requests/incoming', verifyToken, checkRole('mentor'), (req, res) => {
+router.get('/match-requests/incoming', verifyToken, (req, res) => {
+  // Check role - only mentors can access incoming requests
+  if (req.user.role === 'mentee') {
+    return res.status(403).json({ error: 'Mentees cannot access incoming requests' });
+  }
+  
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   const mentorId = req.user.sub;
   const db = getDatabase();
   
@@ -339,7 +392,16 @@ router.get('/match-requests/incoming', verifyToken, checkRole('mentor'), (req, r
 });
 
 // Get outgoing requests (mentee only)
-router.get('/match-requests/outgoing', verifyToken, checkRole('mentee'), (req, res) => {
+router.get('/match-requests/outgoing', verifyToken, (req, res) => {
+  // Check role - only mentees can access outgoing requests
+  if (req.user.role === 'mentor') {
+    return res.status(403).json({ error: 'Mentors cannot access outgoing requests' });
+  }
+  
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
   const menteeId = req.user.sub;
   const db = getDatabase();
   

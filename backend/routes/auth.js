@@ -8,36 +8,60 @@ const router = express.Router();
 
 // Signup
 router.post('/signup', [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
-  body('name').optional().trim().isLength({ min: 1 }),
-  body('role').isIn(['mentor', 'mentee'])
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('name').notEmpty().trim().isLength({ min: 1 }).withMessage('Name is required'),
+  body('role').isIn(['mentor', 'mentee']).withMessage('Role must be mentor or mentee')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: 'Invalid input data' });
+      return res.status(400).json({ error: 'Invalid input data', details: errors.array() });
     }
     
     const { email, password, name, role } = req.body;
+    
+    // Check for missing required fields
+    if (!email || !password || !name || !role) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
     const hashedPassword = await bcrypt.hash(password, 12);
     
     const db = getDatabase();
     
-    db.run(
-      `INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
-      [email, hashedPassword, name || email, role],
-      function(err) {
+    // First check if email already exists
+    db.get(
+      `SELECT id FROM users WHERE email = ?`,
+      [email],
+      (err, existingUser) => {
         if (err) {
           db.close();
-          if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-            return res.status(400).json({ error: 'Email already exists' });
-          }
           return res.status(500).json({ error: 'Internal server error' });
         }
         
-        db.close();
-        res.status(201).json({ message: 'User created successfully' });
+        if (existingUser) {
+          db.close();
+          return res.status(400).json({ error: 'Email already exists' });
+        }
+        
+        // Insert new user
+        db.run(
+          `INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)`,
+          [email, hashedPassword, name, role],
+          function(err) {
+            if (err) {
+              db.close();
+              if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                return res.status(400).json({ error: 'Email already exists' });
+              }
+              return res.status(500).json({ error: 'Internal server error' });
+            }
+            
+            db.close();
+            res.status(201).json({ message: 'User created successfully' });
+          }
+        );
       }
     );
   } catch (error) {
@@ -47,16 +71,22 @@ router.post('/signup', [
 
 // Login
 router.post('/login', [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 1 })
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: 'Invalid input data' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
     
     const { email, password } = req.body;
+    
+    // Check for missing fields
+    if (!email || !password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
     const db = getDatabase();
     
     db.get(

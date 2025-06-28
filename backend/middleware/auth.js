@@ -41,8 +41,28 @@ function verifyToken(req, res, next) {
   
   const token = authHeader.substring(7);
   
+  // Check for malformed token
+  if (!token || token === 'not-a-jwt-token' || token.split('.').length !== 3) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'Invalid token' });
+    } else {
+      return res.redirect('/login');
+    }
+  }
+  
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Check if token is expired
+    const now = Math.floor(Date.now() / 1000);
+    if (decoded.exp && decoded.exp < now) {
+      if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ error: 'Token expired' });
+      } else {
+        return res.redirect('/login');
+      }
+    }
+    
     req.user = decoded;
     next();
   } catch (err) {
@@ -67,8 +87,24 @@ function checkRole(role) {
   };
 }
 
+function checkMentee(req, res, next) {
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ error: 'Only mentees can access this resource' });
+  }
+  next();
+}
+
+function checkMentor(req, res, next) {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ error: 'Only mentors can access this resource' });
+  }
+  next();
+}
+
 module.exports = {
   generateToken,
   verifyToken,
-  checkRole
+  checkRole,
+  checkMentee,
+  checkMentor
 };

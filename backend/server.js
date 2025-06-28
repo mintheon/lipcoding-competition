@@ -86,6 +86,34 @@ if (fs.existsSync(openApiPath)) {
 app.use('/api', authRoutes);
 app.use('/api', apiRoutes);
 
+// Catch all API routes that need authentication
+app.use('/api/*', (req, res, next) => {
+  // Check if it's a path that should exist but requires auth
+  const protectedPaths = [
+    '/api/me',
+    '/api/profile', 
+    '/api/mentors',
+    '/api/match-requests',
+    '/api/match-requests/incoming',
+    '/api/match-requests/outgoing',
+    '/api/images'
+  ];
+  
+  const isProtectedPath = protectedPaths.some(path => 
+    req.path === path || req.path.startsWith(path + '/')
+  );
+  
+  if (isProtectedPath) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  next();
+});
+
 // Redirect /api to Swagger UI for API documentation
 app.get('/api', (req, res) => {
   res.redirect('/swagger-ui');
